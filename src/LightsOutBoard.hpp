@@ -198,10 +198,7 @@ std::string LightsOutBoard<W, H>::prettyPrint() const noexcept {
 			out << ' ' << symbol;
 		}
 
-		if (y != H - 1uLL)
-		{
-			out << '\n';
-		}
+		out << '\n';
 	}
 	return out.str();
 }
