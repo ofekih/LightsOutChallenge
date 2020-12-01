@@ -36,14 +36,3 @@ BOOST_PYTHON_MODULE(LightsOutBoard)
     defineBoard<8uLL, 8uLL>();
     defineBoard<4uLL, 3uLL>();
 }
-
-
-// char const* greet()
-// {
-// 	return "hello, world!";
-// }
-
-// BOOST_PYTHON_MODULE(greeter)
-// {
-// 	boost::python::def("greet", greet);
-// }
