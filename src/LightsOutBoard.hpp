@@ -5,6 +5,8 @@
 #include <cstdint>
 
 #include <iostream>
+#include <string>
+#include <sstream>
 
 namespace lightsout
 {
@@ -29,7 +31,7 @@ public:
 	void set(uint64_t location, bool on) noexcept;
 	void setCoords(uint64_t x, uint64_t y, bool on) noexcept;
 	void setAll(bool on) noexcept;
-	void prettyPrint() const noexcept;
+	std::string prettyPrint() const noexcept;
 	std::ostream& print(std::ostream& out) const noexcept;
 
 private:
@@ -186,16 +188,22 @@ typename LightsOutBoard<W, H>::BOARD_TYPE LightsOutBoard<W, H>::getRightEdgeMask
 }
 
 template <uint64_t W, uint64_t H>
-void LightsOutBoard<W, H>::prettyPrint() const noexcept {
+std::string LightsOutBoard<W, H>::prettyPrint() const noexcept {
+	std::stringstream out;
 	for (uint64_t y = 0uLL; y < H; ++y)
 	{
 		for (uint64_t x = 0uLL; x < W; ++x)
 		{
 			char symbol = isOnCoords(x, y) ? 'O' : '-';
-			std::cout << ' ' << symbol;
+			out << ' ' << symbol;
 		}
-		std::cout << '\n';
+
+		if (y != H - 1uLL)
+		{
+			out << '\n';
+		}
 	}
+	return out.str();
 }
 
 
