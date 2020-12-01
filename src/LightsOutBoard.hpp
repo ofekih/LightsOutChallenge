@@ -27,6 +27,7 @@ public:
 	bool isOnCoords(uint64_t x, uint64_t y) const noexcept;
 	void flip(uint64_t location) noexcept;
 	void flipCoords(uint64_t x, uint64_t y) noexcept;
+	void flipBoard(const LightsOutBoard& lightsOutBoard) noexcept;
 	uint64_t getNumOn() const noexcept;
 	void set(uint64_t location, bool on) noexcept;
 	void setCoords(uint64_t x, uint64_t y, bool on) noexcept;
@@ -131,6 +132,18 @@ template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::flipCoords(uint64_t x, uint64_t y) noexcept
 {
 	flip(x + W * y);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::flipBoard(const LightsOutBoard& lightsOutBoard) noexcept
+{
+	const auto& otherBoard = lightsOutBoard.board;
+
+	board ^= otherBoard; // toggle centers
+	board ^= (otherBoard << W); // toggle above
+	board ^= (otherBoard >> W); // toggle below
+	board ^= ((otherBoard & ~LEFT_EDGE_MASK) >> 1uLL); // toggle left if not on left edge
+	board ^= ((otherBoard & ~RIGHT_EDGE_MASK) << 1uLL); // toggle right if not on right edge
 }
 
 template <uint64_t W, uint64_t H>
