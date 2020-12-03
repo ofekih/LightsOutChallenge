@@ -17,23 +17,34 @@ void defineBoard()
 
 	class_<LightsOutBoard<W, H>>(o.str().c_str())
 		.def(init<LightsOutBoard<W, H>>())
-	    .def("isOn", &LightsOutBoard<W, H>::isOn)
-	    .def("isOnCoords", &LightsOutBoard<W, H>::isOnCoords)
-	    .def("set", &LightsOutBoard<W, H>::set)
-	    .def("setCoords", &LightsOutBoard<W, H>::setCoords)
-	    .def("setAll", &LightsOutBoard<W, H>::setAll)
-	    .def("flip", &LightsOutBoard<W, H>::flip)
-	    .def("flipCoords", &LightsOutBoard<W, H>::flipCoords)
-	    .def("flipBoard", &LightsOutBoard<W, H>::flipBoard)
-	    .def("getNumOn", &LightsOutBoard<W, H>::getNumOn)
-	    .def("prettyPrint", &LightsOutBoard<W, H>::prettyPrint)
-	    .def(self_ns::str(self_ns::self))
+		.def("is_on", &LightsOutBoard<W, H>::isOn)
+		.def("is_on_coords", &LightsOutBoard<W, H>::isOnCoords)
+		.def("is_output_vertex", &LightsOutBoard<W, H>::isOutputVertex)
+		.def("is_output_vertex_coords", &LightsOutBoard<W, H>::isOutputVertexCoords)
+		.def("set", &LightsOutBoard<W, H>::set)
+		.def("set_list", &LightsOutBoard<W, H>::setList)
+		.def("set_coords", &LightsOutBoard<W, H>::setCoords)
+		.def("set_all", &LightsOutBoard<W, H>::setAll)
+		.def("set_random", &LightsOutBoard<W, H>::setRandom)
+		.def("set_output_vertex", &LightsOutBoard<W, H>::setOutputVertex)
+		.def("set_output_vertex_list", &LightsOutBoard<W, H>::setOutputVertexList)
+		.def("set_output_vertex_coords", &LightsOutBoard<W, H>::setOutputVertexCoords)
+		.def("set_all_output_vertex", &LightsOutBoard<W, H>::setAllOutputVertices)
+		.def("set_random_output_vertices", &LightsOutBoard<W, H>::setRandomOutputVertices)
+		.def("set_random_seed", &LightsOutBoard<W, H>::setRandomSeed)
+		.def("flip", &LightsOutBoard<W, H>::flip)
+		.def("flip_list", &LightsOutBoard<W, H>::flipList)
+		.def("flip_coords", &LightsOutBoard<W, H>::flipCoords)
+		.def("flip_board", &LightsOutBoard<W, H>::flipBoard)
+		.def("get_num_on", &LightsOutBoard<W, H>::getNumOn)
+		.def("pretty", &LightsOutBoard<W, H>::pretty)
+		.def(self_ns::str(self_ns::self))
 	;
 }
 
 
 BOOST_PYTHON_MODULE(LightsOutBoard)
 {
-    defineBoard<8uLL, 8uLL>();
-    defineBoard<4uLL, 3uLL>();
+	defineBoard<8uLL, 8uLL>();
+	defineBoard<4uLL, 3uLL>();
 }

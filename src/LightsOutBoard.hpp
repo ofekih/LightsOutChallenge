@@ -3,10 +3,12 @@
 
 #include <bitset>
 #include <cstdint>
-
 #include <iostream>
+#include <random>
 #include <string>
 #include <sstream>
+
+#include <boost/python.hpp>
 
 namespace lightsout
 {
@@ -14,68 +16,75 @@ template <uint64_t WIDTH, uint64_t HEIGHT>
 class LightsOutBoard
 {
 private:
-	static constexpr uint64_t MASK_CENTER = WIDTH + 1uLL;
-	typedef std::bitset<WIDTH * (HEIGHT + 2uLL)> BOARD_TYPE;
-	BOARD_TYPE board;
+	typedef std::bitset<WIDTH * HEIGHT> BOARD_TYPE;
+	BOARD_TYPE board, outputVertices;
+	std::default_random_engine generator;
 
 public:
 	LightsOutBoard() noexcept;
 	LightsOutBoard(const BOARD_TYPE& board) noexcept;
+	LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept;
 	LightsOutBoard(const LightsOutBoard& board) noexcept;
 
 	bool isOn(uint64_t location) const noexcept;
 	bool isOnCoords(uint64_t x, uint64_t y) const noexcept;
+	bool isOutputVertex(uint64_t location) const noexcept;
+	bool isOutputVertexCoords(uint64_t x, uint64_t y) const noexcept;
 	void flip(uint64_t location) noexcept;
+	void flipList(const boost::python::list& list) noexcept;
 	void flipCoords(uint64_t x, uint64_t y) noexcept;
 	void flipBoard(const LightsOutBoard& lightsOutBoard) noexcept;
 	uint64_t getNumOn() const noexcept;
 	void set(uint64_t location, bool on) noexcept;
+	void setList(const boost::python::list& list) noexcept;
 	void setCoords(uint64_t x, uint64_t y, bool on) noexcept;
 	void setAll(bool on) noexcept;
-	std::string prettyPrint() const noexcept;
+	void setRandom(double probability) noexcept;
+	void setOutputVertex(uint64_t location, bool on) noexcept;
+	void setOutputVertexList(const boost::python::list& list) noexcept;
+	void setOutputVertexCoords(uint64_t x, uint64_t y, bool on) noexcept;
+	void setAllOutputVertices(bool on) noexcept;
+	void setRandomOutputVertices(double probability) noexcept;
+	void setRandomSeed(uint64_t seed) noexcept;
+	std::string pretty() const noexcept;
 	std::ostream& print(std::ostream& out) const noexcept;
 
 private:
-	static BOARD_TYPE getCenterToggleMask() noexcept;
-	static BOARD_TYPE getLeftEdgeToggleMask() noexcept;
-	static BOARD_TYPE getRightEdgeToggleMask() noexcept;
 	static BOARD_TYPE getLeftEdgeMask() noexcept;
 	static BOARD_TYPE getRightEdgeMask() noexcept;
 
-	BOARD_TYPE CENTER_TOGGLE_MASK;
-	BOARD_TYPE LEFT_EDGE_TOGGLE_MASK;
-	BOARD_TYPE RIGHT_EDGE_TOGGLE_MASK;
+	void flipBitset(const BOARD_TYPE& board) noexcept;
+
 	BOARD_TYPE LEFT_EDGE_MASK;
 	BOARD_TYPE RIGHT_EDGE_MASK;
 };
 
 template <uint64_t W, uint64_t H>
-LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board) noexcept
+LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept
 	: board(board),
-	  CENTER_TOGGLE_MASK(getCenterToggleMask()),
-	  LEFT_EDGE_TOGGLE_MASK(getLeftEdgeToggleMask()),
-	  RIGHT_EDGE_TOGGLE_MASK(getRightEdgeToggleMask()),
+	  outputVertices(outputVertices),
 	  LEFT_EDGE_MASK(getLeftEdgeMask()),
-	  RIGHT_EDGE_MASK(getRightEdgeMask())
+	  RIGHT_EDGE_MASK(getRightEdgeMask()),
+	  generator(std::random_device()())
 {
 }
 
 template <uint64_t W, uint64_t H>
 LightsOutBoard<W, H>::LightsOutBoard() noexcept
-	: LightsOutBoard(BOARD_TYPE{})
+	: LightsOutBoard(BOARD_TYPE{}, BOARD_TYPE{})
 {
 }
 
 template <uint64_t W, uint64_t H>
 LightsOutBoard<W, H>::LightsOutBoard(const LightsOutBoard& board) noexcept
-	: LightsOutBoard(board.board)
+	: LightsOutBoard(board.board, board.outputVertices)
 {
 }
 
 template <uint64_t W, uint64_t H>
 bool LightsOutBoard<W, H>::isOn(uint64_t location) const noexcept
 {
-	return board[location + 2uLL * W];
+	return board[location];
 }
 
 template <uint64_t W, uint64_t H>
@@ -85,9 +94,31 @@ bool LightsOutBoard<W, H>::isOnCoords(uint64_t x, uint64_t y) const noexcept
 }
 
 template <uint64_t W, uint64_t H>
+bool LightsOutBoard<W, H>::isOutputVertex(uint64_t location) const noexcept
+{
+	return outputVertices[location];
+}
+
+template <uint64_t W, uint64_t H>
+bool LightsOutBoard<W, H>::isOutputVertexCoords(uint64_t x, uint64_t y) const noexcept
+{
+	return isOutputVertex(x + W * y);
+}
+
+template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::set(uint64_t location, bool on) noexcept
 {
-	board[location + 2uLL * W] = on;
+	board[location] = on;
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setList(const boost::python::list& list) noexcept
+{
+	auto length = boost::python::len(list);
+	for (uint64_t i = 0uLL; i < length; ++i)
+	{
+		board[i] = boost::python::extract<bool>(list[i]);
+	}
 }
 
 template <uint64_t W, uint64_t H>
@@ -109,23 +140,79 @@ void LightsOutBoard<W, H>::setAll(bool on) noexcept
 }
 
 template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setRandom(double probability) noexcept
+{
+	std::bernoulli_distribution dist(probability);
+	for (uint64_t i = 0uLL; i < W * H; ++i)
+	{
+		board[i] = dist(generator);
+	}
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setRandomSeed(uint64_t seed) noexcept
+{
+	generator.seed(seed);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setOutputVertex(uint64_t location, bool on) noexcept
+{
+	outputVertices[location] = on;
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setOutputVertexList(const boost::python::list& list) noexcept
+{
+	auto length = boost::python::len(list);
+	for (uint64_t i = 0uLL; i < length; ++i)
+	{
+		outputVertices[i] = boost::python::extract<bool>(list[i]);
+	}
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setOutputVertexCoords(uint64_t x, uint64_t y, bool on) noexcept
+{
+	return setOutputVertex(x + W * y, on);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setAllOutputVertices(bool on) noexcept
+{
+	if (on)
+	{
+		outputVertices.set();
+	} else
+	{
+		outputVertices.reset();
+	}
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setRandomOutputVertices(double probability) noexcept
+{
+	std::bernoulli_distribution dist(probability);
+	for (uint64_t i = 0uLL; i < W * H; ++i)
+	{
+		outputVertices[i] = dist(generator);
+	}
+}
+
+template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::flip(uint64_t location) noexcept
 {
-	location += 2uLL * W;
+	BOARD_TYPE board;
+	board[location] = true;
+	flipBitset(board);
+}
 
-	if (LEFT_EDGE_MASK[location])
-	{
-		board ^= LEFT_EDGE_TOGGLE_MASK << (location - MASK_CENTER);
-		return;
-	}
-
-	if (RIGHT_EDGE_MASK[location])
-	{
-		board ^= RIGHT_EDGE_TOGGLE_MASK << (location - MASK_CENTER);
-		return;
-	}
-
-	board ^= CENTER_TOGGLE_MASK << (location - MASK_CENTER);
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::flipList(const boost::python::list& list) noexcept
+{
+	LightsOutBoard<W, H> board;
+	board.setList(list);
+	flipBoard(board);
 }
 
 template <uint64_t W, uint64_t H>
@@ -135,10 +222,8 @@ void LightsOutBoard<W, H>::flipCoords(uint64_t x, uint64_t y) noexcept
 }
 
 template <uint64_t W, uint64_t H>
-void LightsOutBoard<W, H>::flipBoard(const LightsOutBoard& lightsOutBoard) noexcept
+void LightsOutBoard<W, H>::flipBitset(const BOARD_TYPE& otherBoard) noexcept
 {
-	const auto& otherBoard = lightsOutBoard.board;
-
 	board ^= otherBoard; // toggle centers
 	board ^= (otherBoard << W); // toggle above
 	board ^= (otherBoard >> W); // toggle below
@@ -147,40 +232,15 @@ void LightsOutBoard<W, H>::flipBoard(const LightsOutBoard& lightsOutBoard) noexc
 }
 
 template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::flipBoard(const LightsOutBoard& lightsOutBoard) noexcept
+{
+	flipBitset(lightsOutBoard.board);
+}
+
+template <uint64_t W, uint64_t H>
 uint64_t LightsOutBoard<W, H>::getNumOn() const noexcept
 {
-	return (board >> (2uLL * W)).count();
-}
-
-template <uint64_t W, uint64_t H>
-typename LightsOutBoard<W, H>::BOARD_TYPE LightsOutBoard<W, H>::getCenterToggleMask() noexcept {
-	typename LightsOutBoard<W, H>::BOARD_TYPE centerToggleMask;
-
-	centerToggleMask.set(MASK_CENTER - W); // bottom
-	centerToggleMask.set(MASK_CENTER - 1uLL); // left
-	centerToggleMask.set(MASK_CENTER); // center
-	centerToggleMask.set(MASK_CENTER + 1uLL); // right
-	centerToggleMask.set(MASK_CENTER + W); // top
-
-	return centerToggleMask;
-}
-
-template <uint64_t W, uint64_t H>
-typename LightsOutBoard<W, H>::BOARD_TYPE LightsOutBoard<W, H>::getLeftEdgeToggleMask() noexcept {
-	auto leftEdgeToggleMask = getCenterToggleMask();
-
-	leftEdgeToggleMask.reset(MASK_CENTER - 1uLL); // left
-
-	return leftEdgeToggleMask;
-}
-
-template <uint64_t W, uint64_t H>
-typename LightsOutBoard<W, H>::BOARD_TYPE LightsOutBoard<W, H>::getRightEdgeToggleMask() noexcept {
-	auto rightEdgeToggleMask = getCenterToggleMask();
-
-	rightEdgeToggleMask.reset(MASK_CENTER + 1uLL); // right
-
-	return rightEdgeToggleMask;
+	return (board & ~outputVertices).count();
 }
 
 template <uint64_t W, uint64_t H>
@@ -201,13 +261,13 @@ typename LightsOutBoard<W, H>::BOARD_TYPE LightsOutBoard<W, H>::getRightEdgeMask
 }
 
 template <uint64_t W, uint64_t H>
-std::string LightsOutBoard<W, H>::prettyPrint() const noexcept {
+std::string LightsOutBoard<W, H>::pretty() const noexcept {
 	std::stringstream out;
 	for (uint64_t y = 0uLL; y < H; ++y)
 	{
 		for (uint64_t x = 0uLL; x < W; ++x)
 		{
-			char symbol = isOnCoords(x, y) ? 'O' : '-';
+			char symbol = isOutputVertexCoords(x, y) ? (isOnCoords(x, y) ? 'o' : 'x') : (isOnCoords(x, y) ? 'O' : 'X');
 			out << ' ' << symbol;
 		}
 
@@ -219,7 +279,7 @@ std::string LightsOutBoard<W, H>::prettyPrint() const noexcept {
 
 template <uint64_t W, uint64_t H>
 std::ostream& LightsOutBoard<W, H>::print(std::ostream& out) const noexcept {
-	out << board.to_string().substr(0uLL, W * H);
+	out << board.to_string();
 	return out;
 }
 
