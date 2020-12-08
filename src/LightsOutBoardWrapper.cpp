@@ -36,6 +36,10 @@ void defineBoard()
 		.def("flip_list", &LightsOutBoard<W, H>::flipList)
 		.def("flip_coords", &LightsOutBoard<W, H>::flipCoords)
 		.def("flip_board", &LightsOutBoard<W, H>::flipBoard)
+		.def("mutate", &LightsOutBoard<W, H>::mutate)
+		.def("mutate_list", &LightsOutBoard<W, H>::mutateList)
+		.def("mutate_coords", &LightsOutBoard<W, H>::mutateCoords)
+		.def("mutate_board", &LightsOutBoard<W, H>::mutateBoard)
 		.def("get_num_on", &LightsOutBoard<W, H>::getNumOn)
 		.def("pretty", &LightsOutBoard<W, H>::pretty)
 		.def(self_ns::str(self_ns::self))
@@ -47,4 +51,5 @@ BOOST_PYTHON_MODULE(LightsOutBoard)
 {
 	defineBoard<8uLL, 8uLL>();
 	defineBoard<4uLL, 3uLL>();
+	defineBoard<1000uLL, 1000uLL>();
 }

@@ -2,6 +2,7 @@
 #define LightsOutBoard_H
 
 #include <bitset>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <random>
@@ -34,6 +35,10 @@ public:
 	void flipList(const boost::python::list& list) noexcept;
 	void flipCoords(uint64_t x, uint64_t y) noexcept;
 	void flipBoard(const LightsOutBoard& lightsOutBoard) noexcept;
+	void mutate(uint64_t location) noexcept;
+	void mutateList(const boost::python::list& list) noexcept;
+	void mutateCoords(uint64_t x, uint64_t y) noexcept;
+	void mutateBoard(const LightsOutBoard& lightsOutBoard) noexcept;
 	uint64_t getNumOn() const noexcept;
 	void set(uint64_t location, bool on) noexcept;
 	void setList(const boost::python::list& list) noexcept;
@@ -53,7 +58,9 @@ private:
 	static BOARD_TYPE getLeftEdgeMask() noexcept;
 	static BOARD_TYPE getRightEdgeMask() noexcept;
 
+	void mutateBitset(const BOARD_TYPE& board) noexcept;
 	void flipBitset(const BOARD_TYPE& board) noexcept;
+	void setRandomBitboard(BOARD_TYPE& board, double probability) noexcept;
 
 	BOARD_TYPE LEFT_EDGE_MASK;
 	BOARD_TYPE RIGHT_EDGE_MASK;
@@ -142,11 +149,7 @@ void LightsOutBoard<W, H>::setAll(bool on) noexcept
 template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::setRandom(double probability) noexcept
 {
-	std::bernoulli_distribution dist(probability);
-	for (uint64_t i = 0uLL; i < W * H; ++i)
-	{
-		board[i] = dist(generator);
-	}
+	setRandomBitboard(board, probability);
 }
 
 template <uint64_t W, uint64_t H>
@@ -192,10 +195,20 @@ void LightsOutBoard<W, H>::setAllOutputVertices(bool on) noexcept
 template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::setRandomOutputVertices(double probability) noexcept
 {
-	std::bernoulli_distribution dist(probability);
-	for (uint64_t i = 0uLL; i < W * H; ++i)
+	setRandomBitboard(outputVertices, probability);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setRandomBitboard(BOARD_TYPE& board, double probability) noexcept
+{
+	static std::exponential_distribution<double> dist(1.0);
+	double average_step_size = 1.0 / probability;
+
+	outputVertices = {};
+
+	for (double i = average_step_size * dist(generator); i < W * H; i += average_step_size * dist(generator))
 	{
-		outputVertices[i] = dist(generator);
+		board[static_cast<uint64_t>(i)] = true;
 	}
 }
 
@@ -235,6 +248,40 @@ template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::flipBoard(const LightsOutBoard& lightsOutBoard) noexcept
 {
 	flipBitset(lightsOutBoard.board);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutate(uint64_t location) noexcept
+{
+	BOARD_TYPE board;
+	board[location] = true;
+	mutateBitset(board);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateList(const boost::python::list& list) noexcept
+{
+	LightsOutBoard<W, H> board;
+	board.setList(list);
+	mutateBoard(board);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateCoords(uint64_t x, uint64_t y) noexcept
+{
+	mutate(x + W * y);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateBitset(const BOARD_TYPE& otherBoard) noexcept
+{
+	board ^= otherBoard;
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateBoard(const LightsOutBoard& lightsOutBoard) noexcept
+{
+	mutateBitset(lightsOutBoard.board);
 }
 
 template <uint64_t W, uint64_t H>
