@@ -37,14 +37,17 @@ public:
 	void flipList(const boost::python::list& list) noexcept;
 	void flipCoords(uint64_t x, uint64_t y) noexcept;
 	void flipBoard(const LightsOutBoard& lightsOutBoard) noexcept;
+	LightsOutBoard getStillOn(const LightsOutBoard& parameters) const noexcept;
 	void mutate(uint64_t location) noexcept;
 	void mutateList(const boost::python::list& list) noexcept;
 	void mutateCoords(uint64_t x, uint64_t y) noexcept;
 	void mutateBoard(const LightsOutBoard& lightsOutBoard) noexcept;
+	void keepRelevantMutations(const LightsOutBoard& stillOn) noexcept;
 	void mutateRandom(double probability) noexcept;
 	uint64_t getNumOn() const noexcept;
 	double getPercentageOn() const noexcept;
 	double getCost(const LightsOutBoard& parameters) const noexcept;
+	uint64_t getNumParameters() const noexcept;
 	void set(uint64_t location, bool on) noexcept;
 	void setList(const boost::python::list& list) noexcept;
 	void setCoords(uint64_t x, uint64_t y, bool on) noexcept;
@@ -272,6 +275,14 @@ void LightsOutBoard<W, H>::flipBoard(const LightsOutBoard& lightsOutBoard) noexc
 }
 
 template <uint64_t W, uint64_t H>
+LightsOutBoard<W, H> LightsOutBoard<W, H>::getStillOn(const LightsOutBoard& parameters) const noexcept
+{
+	auto newBoard = *this;
+	newBoard.flipBoard(parameters);
+	return newBoard;
+}
+
+template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::mutate(uint64_t location) noexcept
 {
 	BOARD_TYPE board;
@@ -303,6 +314,15 @@ template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::mutateBoard(const LightsOutBoard& lightsOutBoard) noexcept
 {
 	mutateBitset(lightsOutBoard.board);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::keepRelevantMutations(const LightsOutBoard& stillOn) noexcept
+{
+	BOARD_TYPE relevantPositions = stillOn.board;
+	relevantPositions |= (relevantPositions << W) | (relevantPositions >> W) | ((relevantPositions & ~LEFT_EDGE_MASK) >> 1uLL) | ((relevantPositions & ~RIGHT_EDGE_MASK) << 1uLL);
+
+	board &= relevantPositions;
 }
 
 template <uint64_t W, uint64_t H>
@@ -343,6 +363,12 @@ double LightsOutBoard<W, H>::getCost(const LightsOutBoard& parameters) const noe
 	auto copy = *this;
 	copy.flipBoard(parameters);
 	return copy.getPercentageOn();
+}
+
+template <uint64_t W, uint64_t H>
+uint64_t LightsOutBoard<W, H>::getNumParameters() const noexcept
+{
+	return W + H;
 }
 
 template <uint64_t W, uint64_t H>
