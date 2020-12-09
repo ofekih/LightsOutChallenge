@@ -310,6 +310,13 @@ void LightsOutBoard<W, H>::mutateRandom(double probability) noexcept
 {
 	static std::exponential_distribution<double> dist(1.0);
 
+	if (probability > 0.5)
+	{
+		mutateRandom(1.0 - probability);
+		board = ~board;
+		return;
+	}
+
 	double average_step_size = 1.0 / probability;
 
 	for (double i = average_step_size * dist(generator); i < W * H; i += average_step_size * dist(generator))
