@@ -27,6 +27,8 @@ public:
 	LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept;
 	LightsOutBoard(const LightsOutBoard& board) noexcept;
 
+	LightsOutBoard clone() const noexcept;
+
 	bool isOn(uint64_t location) const noexcept;
 	bool isOnCoords(uint64_t x, uint64_t y) const noexcept;
 	bool isOutputVertex(uint64_t location) const noexcept;
@@ -39,7 +41,10 @@ public:
 	void mutateList(const boost::python::list& list) noexcept;
 	void mutateCoords(uint64_t x, uint64_t y) noexcept;
 	void mutateBoard(const LightsOutBoard& lightsOutBoard) noexcept;
+	void mutateRandom(double probability) noexcept;
 	uint64_t getNumOn() const noexcept;
+	double getPercentageOn() const noexcept;
+	double getCost(const LightsOutBoard& parameters) const noexcept;
 	void set(uint64_t location, bool on) noexcept;
 	void setList(const boost::python::list& list) noexcept;
 	void setCoords(uint64_t x, uint64_t y, bool on) noexcept;
@@ -60,7 +65,7 @@ private:
 
 	void mutateBitset(const BOARD_TYPE& board) noexcept;
 	void flipBitset(const BOARD_TYPE& board) noexcept;
-	void setRandomBitboard(BOARD_TYPE& board, double probability) noexcept;
+	void setRandomBitset(BOARD_TYPE& board, double probability) noexcept;
 
 	BOARD_TYPE LEFT_EDGE_MASK;
 	BOARD_TYPE RIGHT_EDGE_MASK;
@@ -86,6 +91,12 @@ template <uint64_t W, uint64_t H>
 LightsOutBoard<W, H>::LightsOutBoard(const LightsOutBoard& board) noexcept
 	: LightsOutBoard(board.board, board.outputVertices)
 {
+}
+
+template <uint64_t W, uint64_t H>
+LightsOutBoard<W, H> LightsOutBoard<W, H>::clone() const noexcept
+{
+	return LightsOutBoard<W, H>(*this);
 }
 
 template <uint64_t W, uint64_t H>
@@ -149,7 +160,7 @@ void LightsOutBoard<W, H>::setAll(bool on) noexcept
 template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::setRandom(double probability) noexcept
 {
-	setRandomBitboard(board, probability);
+	setRandomBitset(board, probability);
 }
 
 template <uint64_t W, uint64_t H>
@@ -195,13 +206,23 @@ void LightsOutBoard<W, H>::setAllOutputVertices(bool on) noexcept
 template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::setRandomOutputVertices(double probability) noexcept
 {
-	setRandomBitboard(outputVertices, probability);
+	setRandomBitset(outputVertices, probability);
 }
 
 template <uint64_t W, uint64_t H>
-void LightsOutBoard<W, H>::setRandomBitboard(BOARD_TYPE& board, double probability) noexcept
+void LightsOutBoard<W, H>::setRandomBitset(BOARD_TYPE& board, double probability) noexcept
 {
 	static std::exponential_distribution<double> dist(1.0);
+
+	// from my testing, this new method is faster than the old method for all probabilities up to 0.8.
+	// this way, it'll always be faster than the old method
+	if (probability > 0.5)
+	{
+		setRandomBitset(board, 1.0 - probability);
+		board = ~board;
+		return;
+	}
+
 	double average_step_size = 1.0 / probability;
 
 	board.reset();
@@ -285,9 +306,36 @@ void LightsOutBoard<W, H>::mutateBoard(const LightsOutBoard& lightsOutBoard) noe
 }
 
 template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateRandom(double probability) noexcept
+{
+	static std::exponential_distribution<double> dist(1.0);
+
+	double average_step_size = 1.0 / probability;
+
+	for (double i = average_step_size * dist(generator); i < W * H; i += average_step_size * dist(generator))
+	{
+		board[static_cast<uint64_t>(i)] = !board[static_cast<uint64_t>(i)];
+	}
+}
+
+template <uint64_t W, uint64_t H>
 uint64_t LightsOutBoard<W, H>::getNumOn() const noexcept
 {
 	return (board & ~outputVertices).count();
+}
+
+template <uint64_t W, uint64_t H>
+double LightsOutBoard<W, H>::getPercentageOn() const noexcept
+{
+	return getNumOn() / static_cast<double>(W * H);
+}
+
+template <uint64_t W, uint64_t H>
+double LightsOutBoard<W, H>::getCost(const LightsOutBoard& parameters) const noexcept
+{
+	auto copy = *this;
+	copy.flipBoard(parameters);
+	return copy.getPercentageOn();
 }
 
 template <uint64_t W, uint64_t H>
