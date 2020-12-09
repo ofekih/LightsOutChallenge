@@ -204,7 +204,7 @@ void LightsOutBoard<W, H>::setRandomBitboard(BOARD_TYPE& board, double probabili
 	static std::exponential_distribution<double> dist(1.0);
 	double average_step_size = 1.0 / probability;
 
-	outputVertices = {};
+	board.reset();
 
 	for (double i = average_step_size * dist(generator); i < W * H; i += average_step_size * dist(generator))
 	{
