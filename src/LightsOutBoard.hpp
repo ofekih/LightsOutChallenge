@@ -369,7 +369,7 @@ double LightsOutBoard<W, H>::getCost(const LightsOutBoard& parameters) const noe
 template <uint64_t W, uint64_t H>
 uint64_t LightsOutBoard<W, H>::getNumParameters() const noexcept
 {
-	return W + H;
+	return W * H;
 }
 
 template <uint64_t W, uint64_t H>
