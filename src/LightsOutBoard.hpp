@@ -59,6 +59,7 @@ public:
 	void setAllOutputVertices(bool on) noexcept;
 	void setRandomOutputVertices(double probability) noexcept;
 	void setRandomSeed(uint64_t seed) noexcept;
+  LightsOutBoard singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept;
 	std::string pretty() const noexcept;
 	std::ostream& print(std::ostream& out) const noexcept;
 
@@ -369,6 +370,18 @@ template <uint64_t W, uint64_t H>
 uint64_t LightsOutBoard<W, H>::getNumParameters() const noexcept
 {
 	return W + H;
+}
+
+template <uint64_t W, uint64_t H>
+LightsOutBoard<W, H> LightsOutBoard<W, H>::singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept {
+  unsigned leftout = W * H - pos;
+  auto meCopy = *this;
+  auto mateCopy = mate;
+  meCopy.board <<= leftout;
+  meCopy.board >>= leftout;
+  mateCopy.board >>= pos;
+  mateCopy.board <<= pos;
+  return LightsOutBoard<W, H>(meCopy.board | mateCopy.board, this->outputVertices);
 }
 
 template <uint64_t W, uint64_t H>

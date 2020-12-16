@@ -45,6 +45,7 @@ void defineBoard()
 		.def("get_percentage_on", &LightsOutBoard<W, H>::getPercentageOn)
 		.def("get_cost", &LightsOutBoard<W, H>::getCost)
 		.def("get_num_parameters", &LightsOutBoard<W, H>::getNumParameters)
+    .def("single_crossover", &LightsOutBoard<W, H>::singleCrossover)
 		.def("pretty", &LightsOutBoard<W, H>::pretty)
 		.def(self_ns::str(self_ns::self))
 	;
