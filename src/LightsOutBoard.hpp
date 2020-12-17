@@ -22,6 +22,7 @@ private:
 	std::default_random_engine generator;
 
 public:
+	LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices, const BOARD_TYPE& LEFT_EDGE_MASK, const BOARD_TYPE& RIGHT_EDGE_MASK, const std::default_random_engine& generator) noexcept;
 	LightsOutBoard() noexcept;
 	LightsOutBoard(const BOARD_TYPE& board) noexcept;
 	LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept;
@@ -76,12 +77,18 @@ private:
 };
 
 template <uint64_t W, uint64_t H>
-LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept
+LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices, const BOARD_TYPE& LEFT_EDGE_MASK, const BOARD_TYPE& RIGHT_EDGE_MASK, const std::default_random_engine& generator) noexcept
 	: board(board),
 	  outputVertices(outputVertices),
-	  LEFT_EDGE_MASK(getLeftEdgeMask()),
-	  RIGHT_EDGE_MASK(getRightEdgeMask()),
-	  generator(std::random_device()())
+	  LEFT_EDGE_MASK(LEFT_EDGE_MASK),
+	  RIGHT_EDGE_MASK(RIGHT_EDGE_MASK),
+	  generator(generator)
+{
+}
+
+template <uint64_t W, uint64_t H>
+LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept
+	: LightsOutBoard(board, outputVertices, getLeftEdgeMask(), getRightEdgeMask(), std::default_random_engine(std::random_device()()))
 {
 }
 
@@ -93,7 +100,7 @@ LightsOutBoard<W, H>::LightsOutBoard() noexcept
 
 template <uint64_t W, uint64_t H>
 LightsOutBoard<W, H>::LightsOutBoard(const LightsOutBoard& board) noexcept
-	: LightsOutBoard(board.board, board.outputVertices)
+	: LightsOutBoard(board.board, board.outputVertices, board.LEFT_EDGE_MASK, board.RIGHT_EDGE_MASK, board.generator)
 {
 }
 
@@ -355,7 +362,7 @@ uint64_t LightsOutBoard<W, H>::getNumOn() const noexcept
 template <uint64_t W, uint64_t H>
 double LightsOutBoard<W, H>::getPercentageOn() const noexcept
 {
-	return getNumOn() / static_cast<double>(W * H);
+	return getNumOn() / static_cast<double>(getNumParameters());
 }
 
 template <uint64_t W, uint64_t H>
@@ -374,14 +381,14 @@ uint64_t LightsOutBoard<W, H>::getNumParameters() const noexcept
 
 template <uint64_t W, uint64_t H>
 LightsOutBoard<W, H> LightsOutBoard<W, H>::singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept {
-  unsigned leftout = W * H - pos;
-  auto meCopy = *this;
-  auto mateCopy = mate;
-  meCopy.board <<= leftout;
-  meCopy.board >>= leftout;
-  mateCopy.board >>= pos;
-  mateCopy.board <<= pos;
-  return LightsOutBoard<W, H>(meCopy.board | mateCopy.board, this->outputVertices);
+	unsigned leftout = W * H - pos;
+	auto meCopy = *this;
+	auto mateCopy = mate;
+	meCopy.board <<= leftout;
+	meCopy.board >>= leftout;
+	mateCopy.board >>= pos;
+	mateCopy.board <<= pos;
+	return LightsOutBoard<W, H>(meCopy.board | mateCopy.board, this->outputVertices, LEFT_EDGE_MASK, RIGHT_EDGE_MASK, generator);
 }
 
 template <uint64_t W, uint64_t H>
