@@ -66,6 +66,7 @@ BOOST_PYTHON_MODULE(LightsOutBoard)
 
 	defineBoard<500uLL, 500uLL>();
 	defineBoard<200uLL, 200uLL>();
+	defineBoard<150uLL, 150uLL>();
 	defineBoard<100uLL, 100uLL>();
 	defineBoard<50uLL, 50uLL>();
 	defineBoard<20uLL, 20uLL>();
