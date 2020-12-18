@@ -39,6 +39,10 @@ void defineBoard()
 		.def("get_num_on", &LightsOutBoard<W, H>::getNumOn)
 		.def("pretty", &LightsOutBoard<W, H>::pretty)
 		.def(self_ns::str(self_ns::self))
+		.def("row_reduce", &LightsOutBoard<W, H>::rowReduce)
+		.def("solve_lin_alg", &LightsOutBoard<W, H>::solveLinAlg)
+		.def("solve_lin_alg_other", &LightsOutBoard<W, H>::solveLinAlgOther)
+		.def("number_of_nullspace", &LightsOutBoard<W, H>::numberOfNullSpace)
 	;
 }
 
