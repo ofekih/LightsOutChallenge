@@ -86,7 +86,7 @@ private:
 	void setRandomBitset(BOARD_TYPE& board, double probability) noexcept;
 
 	// Linear Algebra Method
-	void solveLinAlg(const BOARD_TYPE& b);	
+	void solve(const BOARD_TYPE& b);	
 	void buildMatrix();
 	uint64_t findPivot(uint64_t startRow, uint64_t pivotCol);
 	BOARD_TYPE matrixMulti(std::vector<BOARD_TYPE> inv, const BOARD_TYPE& b);
@@ -578,7 +578,7 @@ LightsOutBoard<W, H>::matrixMulti(std::vector<LightsOutBoard<W, H>::BOARD_TYPE> 
 }
 
 template <uint64_t W, uint64_t H>
-void LightsOutBoard<W, H>::solveLinAlg(const BOARD_TYPE& b)
+void LightsOutBoard<W, H>::solve(const BOARD_TYPE& b)
 {
 	if (nullSpace.size() == 0)
 	{
@@ -624,14 +624,14 @@ void LightsOutBoard<W, H>::solveLinAlg(const BOARD_TYPE& b)
 template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::solveLinAlg()
 {
-	solution(board);
+	solve(board);
 }
 
 
 template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::solveLinAlgOther(const LightsOutBoard& other)
 {
-	solution(other.board);
+	solve(other.board);
 }
 
 template <uint64_t W, uint64_t H>
