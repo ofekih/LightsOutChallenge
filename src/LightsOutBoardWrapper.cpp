@@ -10,13 +10,11 @@ template <uint64_t W, uint64_t H>
 void defineBoard()
 {
 	std::ostringstream o;
-	o << "LightsOutBoard";
-	o << W;
-	o << "x";
-	o << H;
+	o << "LightsOutBoard" << W << "x" << H;
 
 	class_<LightsOutBoard<W, H>>(o.str().c_str())
 		.def(init<LightsOutBoard<W, H>>())
+		.def("clone", &LightsOutBoard<W, H>::clone)
 		.def("is_on", &LightsOutBoard<W, H>::isOn)
 		.def("is_on_coords", &LightsOutBoard<W, H>::isOnCoords)
 		.def("is_output_vertex", &LightsOutBoard<W, H>::isOutputVertex)
@@ -36,7 +34,18 @@ void defineBoard()
 		.def("flip_list", &LightsOutBoard<W, H>::flipList)
 		.def("flip_coords", &LightsOutBoard<W, H>::flipCoords)
 		.def("flip_board", &LightsOutBoard<W, H>::flipBoard)
+		.def("get_still_on", &LightsOutBoard<W, H>::getStillOn)
+		.def("mutate", &LightsOutBoard<W, H>::mutate)
+		.def("mutate_list", &LightsOutBoard<W, H>::mutateList)
+		.def("mutate_coords", &LightsOutBoard<W, H>::mutateCoords)
+		.def("mutate_board", &LightsOutBoard<W, H>::mutateBoard)
+		.def("mutate_random", &LightsOutBoard<W, H>::mutateRandom)
+		.def("keep_relevant_mutations", &LightsOutBoard<W, H>::keepRelevantMutations)
 		.def("get_num_on", &LightsOutBoard<W, H>::getNumOn)
+		.def("get_percentage_on", &LightsOutBoard<W, H>::getPercentageOn)
+		.def("get_cost", &LightsOutBoard<W, H>::getCost)
+		.def("get_num_parameters", &LightsOutBoard<W, H>::getNumParameters)
+		.def("single_crossover", &LightsOutBoard<W, H>::singleCrossover)
 		.def("pretty", &LightsOutBoard<W, H>::pretty)
 		.def(self_ns::str(self_ns::self))
 		.def("row_reduce", &LightsOutBoard<W, H>::rowReduce)
@@ -51,4 +60,6 @@ BOOST_PYTHON_MODULE(LightsOutBoard)
 {
 	defineBoard<8uLL, 8uLL>();
 	defineBoard<4uLL, 3uLL>();
+	defineBoard<1000uLL, 1000uLL>();
+	defineBoard<5uLL, 5uLL>();
 }

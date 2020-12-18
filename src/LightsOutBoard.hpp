@@ -2,11 +2,14 @@
 #define LightsOutBoard_H
 
 #include <bitset>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <random>
 #include <string>
 #include <sstream>
+
+#include <vector>
 
 #include <boost/python.hpp>
 
@@ -26,10 +29,13 @@ private:
 	std::vector<BOARD_TYPE> invMatrix;
 
 public:
+	LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices, const BOARD_TYPE& LEFT_EDGE_MASK, const BOARD_TYPE& RIGHT_EDGE_MASK, const std::default_random_engine& generator) noexcept;
 	LightsOutBoard() noexcept;
 	LightsOutBoard(const BOARD_TYPE& board) noexcept;
 	LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept;
 	LightsOutBoard(const LightsOutBoard& board) noexcept;
+
+	LightsOutBoard clone() const noexcept;
 
 	bool isOn(uint64_t location) const noexcept;
 	bool isOnCoords(uint64_t x, uint64_t y) const noexcept;
@@ -39,7 +45,17 @@ public:
 	void flipList(const boost::python::list& list) noexcept;
 	void flipCoords(uint64_t x, uint64_t y) noexcept;
 	void flipBoard(const LightsOutBoard& lightsOutBoard) noexcept;
+	LightsOutBoard getStillOn(const LightsOutBoard& parameters) const noexcept;
+	void mutate(uint64_t location) noexcept;
+	void mutateList(const boost::python::list& list) noexcept;
+	void mutateCoords(uint64_t x, uint64_t y) noexcept;
+	void mutateBoard(const LightsOutBoard& lightsOutBoard) noexcept;
+	void keepRelevantMutations(const LightsOutBoard& stillOn) noexcept;
+	void mutateRandom(double probability) noexcept;
 	uint64_t getNumOn() const noexcept;
+	double getPercentageOn() const noexcept;
+	double getCost(const LightsOutBoard& parameters) const noexcept;
+	uint64_t getNumParameters() const noexcept;
 	void set(uint64_t location, bool on) noexcept;
 	void setList(const boost::python::list& list) noexcept;
 	void setCoords(uint64_t x, uint64_t y, bool on) noexcept;
@@ -51,6 +67,7 @@ public:
 	void setAllOutputVertices(bool on) noexcept;
 	void setRandomOutputVertices(double probability) noexcept;
 	void setRandomSeed(uint64_t seed) noexcept;
+  LightsOutBoard singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept;
 	std::string pretty() const noexcept;
 	std::ostream& print(std::ostream& out) const noexcept;
 
@@ -64,7 +81,9 @@ private:
 	static BOARD_TYPE getLeftEdgeMask() noexcept;
 	static BOARD_TYPE getRightEdgeMask() noexcept;
 
+	void mutateBitset(const BOARD_TYPE& board) noexcept;
 	void flipBitset(const BOARD_TYPE& board) noexcept;
+	void setRandomBitset(BOARD_TYPE& board, double probability) noexcept;
 
 	// Linear Algebra Method
 	void solveLinAlg(const BOARD_TYPE& b);	
@@ -77,12 +96,18 @@ private:
 };
 
 template <uint64_t W, uint64_t H>
-LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept
+LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices, const BOARD_TYPE& LEFT_EDGE_MASK, const BOARD_TYPE& RIGHT_EDGE_MASK, const std::default_random_engine& generator) noexcept
 	: board(board),
 	  outputVertices(outputVertices),
-	  LEFT_EDGE_MASK(getLeftEdgeMask()),
-	  RIGHT_EDGE_MASK(getRightEdgeMask()),
-	  generator(std::random_device()())
+	  LEFT_EDGE_MASK(LEFT_EDGE_MASK),
+	  RIGHT_EDGE_MASK(RIGHT_EDGE_MASK),
+	  generator(generator)
+{
+}
+
+template <uint64_t W, uint64_t H>
+LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept
+	: LightsOutBoard(board, outputVertices, getLeftEdgeMask(), getRightEdgeMask(), std::default_random_engine(std::random_device()()))
 {
 }
 
@@ -94,8 +119,14 @@ LightsOutBoard<W, H>::LightsOutBoard() noexcept
 
 template <uint64_t W, uint64_t H>
 LightsOutBoard<W, H>::LightsOutBoard(const LightsOutBoard& board) noexcept
-	: LightsOutBoard(board.board, board.outputVertices)
+	: LightsOutBoard(board.board, board.outputVertices, board.LEFT_EDGE_MASK, board.RIGHT_EDGE_MASK, board.generator)
 {
+}
+
+template <uint64_t W, uint64_t H>
+LightsOutBoard<W, H> LightsOutBoard<W, H>::clone() const noexcept
+{
+	return LightsOutBoard<W, H>(*this);
 }
 
 template <uint64_t W, uint64_t H>
@@ -159,11 +190,7 @@ void LightsOutBoard<W, H>::setAll(bool on) noexcept
 template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::setRandom(double probability) noexcept
 {
-	std::bernoulli_distribution dist(probability);
-	for (uint64_t i = 0uLL; i < W * H; ++i)
-	{
-		board[i] = dist(generator);
-	}
+	setRandomBitset(board, probability);
 }
 
 template <uint64_t W, uint64_t H>
@@ -209,10 +236,30 @@ void LightsOutBoard<W, H>::setAllOutputVertices(bool on) noexcept
 template <uint64_t W, uint64_t H>
 void LightsOutBoard<W, H>::setRandomOutputVertices(double probability) noexcept
 {
-	std::bernoulli_distribution dist(probability);
-	for (uint64_t i = 0uLL; i < W * H; ++i)
+	setRandomBitset(outputVertices, probability);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::setRandomBitset(BOARD_TYPE& board, double probability) noexcept
+{
+	static std::exponential_distribution<double> dist(1.0);
+
+	// from my testing, this new method is faster than the old method for all probabilities up to 0.8.
+	// this way, it'll always be faster than the old method
+	if (probability > 0.5)
 	{
-		outputVertices[i] = dist(generator);
+		setRandomBitset(board, 1.0 - probability);
+		board = ~board;
+		return;
+	}
+
+	double average_step_size = 1.0 / probability;
+
+	board.reset();
+
+	for (double i = average_step_size * dist(generator); i < W * H; i += average_step_size * dist(generator))
+	{
+		board[static_cast<uint64_t>(i)] = true;
 	}
 }
 
@@ -255,9 +302,112 @@ void LightsOutBoard<W, H>::flipBoard(const LightsOutBoard& lightsOutBoard) noexc
 }
 
 template <uint64_t W, uint64_t H>
+LightsOutBoard<W, H> LightsOutBoard<W, H>::getStillOn(const LightsOutBoard& parameters) const noexcept
+{
+	auto newBoard = *this;
+	newBoard.flipBoard(parameters);
+	return newBoard;
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutate(uint64_t location) noexcept
+{
+	BOARD_TYPE board;
+	board[location] = true;
+	mutateBitset(board);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateList(const boost::python::list& list) noexcept
+{
+	LightsOutBoard<W, H> board;
+	board.setList(list);
+	mutateBoard(board);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateCoords(uint64_t x, uint64_t y) noexcept
+{
+	mutate(x + W * y);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateBitset(const BOARD_TYPE& otherBoard) noexcept
+{
+	board ^= otherBoard;
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateBoard(const LightsOutBoard& lightsOutBoard) noexcept
+{
+	mutateBitset(lightsOutBoard.board);
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::keepRelevantMutations(const LightsOutBoard& stillOn) noexcept
+{
+	BOARD_TYPE relevantPositions = stillOn.board;
+	relevantPositions |= (relevantPositions << W) | (relevantPositions >> W) | ((relevantPositions & ~LEFT_EDGE_MASK) >> 1uLL) | ((relevantPositions & ~RIGHT_EDGE_MASK) << 1uLL);
+
+	board &= relevantPositions;
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateRandom(double probability) noexcept
+{
+	static std::exponential_distribution<double> dist(1.0);
+
+	if (probability > 0.5)
+	{
+		mutateRandom(1.0 - probability);
+		board = ~board;
+		return;
+	}
+
+	double average_step_size = 1.0 / probability;
+
+	for (double i = average_step_size * dist(generator); i < W * H; i += average_step_size * dist(generator))
+	{
+		board[static_cast<uint64_t>(i)] = !board[static_cast<uint64_t>(i)];
+	}
+}
+
+template <uint64_t W, uint64_t H>
 uint64_t LightsOutBoard<W, H>::getNumOn() const noexcept
 {
 	return (board & ~outputVertices).count();
+}
+
+template <uint64_t W, uint64_t H>
+double LightsOutBoard<W, H>::getPercentageOn() const noexcept
+{
+	return getNumOn() / static_cast<double>(getNumParameters());
+}
+
+template <uint64_t W, uint64_t H>
+double LightsOutBoard<W, H>::getCost(const LightsOutBoard& parameters) const noexcept
+{
+	auto copy = *this;
+	copy.flipBoard(parameters);
+	return copy.getPercentageOn();
+}
+
+template <uint64_t W, uint64_t H>
+uint64_t LightsOutBoard<W, H>::getNumParameters() const noexcept
+{
+	return W * H;
+}
+
+template <uint64_t W, uint64_t H>
+LightsOutBoard<W, H> LightsOutBoard<W, H>::singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept {
+	unsigned leftout = W * H - pos;
+	auto meCopy = *this;
+	auto mateCopy = mate;
+	meCopy.board <<= leftout;
+	meCopy.board >>= leftout;
+	mateCopy.board >>= pos;
+	mateCopy.board <<= pos;
+	return LightsOutBoard<W, H>(meCopy.board | mateCopy.board, this->outputVertices, LEFT_EDGE_MASK, RIGHT_EDGE_MASK, generator);
 }
 
 template <uint64_t W, uint64_t H>
