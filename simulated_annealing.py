@@ -67,12 +67,14 @@ class SimulatedAnnealing:
 
 
 if __name__ == '__main__':
+	# print([i * 1e-7 for i in range(1, 5)])
+	# exit(0)
 	random.seed(718294235)
 
 	board = LightsOutBoard1000x1000()
 	board.set_random_seed(124124)
 
-	for mutation_probability in (i * 5e-7 for i in range(1, 16)):
+	for mutation_probability in [6e-1, 7e-1, 8e-1, 9e-1]:
 		for i in range(5):
 			board.set_random(0.6)
 
@@ -90,12 +92,16 @@ if __name__ == '__main__':
 
 			initial_on = board.get_num_on()
 
+			c = 0
 			while sa.consecutive_no_change < 1000:
+				c += 1
 				sa.run_one_cycle()
 
-			final_on = sa.best_parameters.get_num_on()
+			board.flip_board(sa.best_parameters)
 
-			print(f'{mutation_probability} {i}: {initial_on} -> {final_on} ({initial_on - final_on})')
+			final_on = board.get_num_on()
+
+			print(f'{mutation_probability} {i}: {initial_on} -> {final_on} ({initial_on - final_on}) {c} iterations')
 
 # 1000x1000, 0.5 probability results
 # result | # iterations | initial temperature | temperature multiplier | additional details
