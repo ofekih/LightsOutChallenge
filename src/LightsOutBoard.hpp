@@ -1,6 +1,7 @@
 #ifndef LightsOutBoard_H
 #define LightsOutBoard_H
 
+#include <algorithm>
 #include <bitset>
 #include <cmath>
 #include <cstdint>
@@ -8,6 +9,8 @@
 #include <random>
 #include <string>
 #include <sstream>
+
+#include <vector>
 
 #include <boost/python.hpp>
 
@@ -20,8 +23,14 @@ private:
 	typedef std::bitset<WIDTH * HEIGHT> BOARD_TYPE;
 	BOARD_TYPE board, outputVertices;
 	std::default_random_engine generator;
+	
+	//Linear Algebra Method
+	std::vector<BOARD_TYPE> nullSpace;
+	std::vector<BOARD_TYPE> boardMatrix;
+	std::vector<BOARD_TYPE> invMatrix;
 
 public:
+	LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices, const BOARD_TYPE& LEFT_EDGE_MASK, const BOARD_TYPE& RIGHT_EDGE_MASK, const std::default_random_engine& generator) noexcept;
 	LightsOutBoard() noexcept;
 	LightsOutBoard(const BOARD_TYPE& board) noexcept;
 	LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept;
@@ -44,10 +53,11 @@ public:
 	void mutateBoard(const LightsOutBoard& lightsOutBoard) noexcept;
 	void keepRelevantMutations(const LightsOutBoard& stillOn) noexcept;
 	void mutateRandom(double probability) noexcept;
+	void mutateRandomBlock(double probability, uint64_t blockSize) noexcept;
 	uint64_t getNumOn() const noexcept;
 	double getPercentageOn() const noexcept;
 	double getCost(const LightsOutBoard& parameters) const noexcept;
-	uint64_t getNumParameters() const noexcept;
+	constexpr uint64_t getNumParameters() const noexcept;
 	void set(uint64_t location, bool on) noexcept;
 	void setList(const boost::python::list& list) noexcept;
 	void setCoords(uint64_t x, uint64_t y, bool on) noexcept;
@@ -59,9 +69,15 @@ public:
 	void setAllOutputVertices(bool on) noexcept;
 	void setRandomOutputVertices(double probability) noexcept;
 	void setRandomSeed(uint64_t seed) noexcept;
-  LightsOutBoard singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept;
+	LightsOutBoard singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept;
 	std::string pretty() const noexcept;
 	std::ostream& print(std::ostream& out) const noexcept;
+
+	// Linear Algebra Method
+	void rowReduce();
+	void solveLinAlgOther(const LightsOutBoard& other);
+	void solveLinAlg();
+	uint64_t numberOfNullSpace();
 
 private:
 	static BOARD_TYPE getLeftEdgeMask() noexcept;
@@ -71,17 +87,29 @@ private:
 	void flipBitset(const BOARD_TYPE& board) noexcept;
 	void setRandomBitset(BOARD_TYPE& board, double probability) noexcept;
 
+	// Linear Algebra Method
+	void solve(const BOARD_TYPE& b);	
+	void buildMatrix();
+	uint64_t findPivot(uint64_t startRow, uint64_t pivotCol);
+	BOARD_TYPE matrixMulti(std::vector<BOARD_TYPE> inv, const BOARD_TYPE& b);
+
 	BOARD_TYPE LEFT_EDGE_MASK;
 	BOARD_TYPE RIGHT_EDGE_MASK;
 };
 
 template <uint64_t W, uint64_t H>
-LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept
+LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices, const BOARD_TYPE& LEFT_EDGE_MASK, const BOARD_TYPE& RIGHT_EDGE_MASK, const std::default_random_engine& generator) noexcept
 	: board(board),
 	  outputVertices(outputVertices),
-	  LEFT_EDGE_MASK(getLeftEdgeMask()),
-	  RIGHT_EDGE_MASK(getRightEdgeMask()),
-	  generator(std::random_device()())
+	  LEFT_EDGE_MASK(LEFT_EDGE_MASK),
+	  RIGHT_EDGE_MASK(RIGHT_EDGE_MASK),
+	  generator(generator)
+{
+}
+
+template <uint64_t W, uint64_t H>
+LightsOutBoard<W, H>::LightsOutBoard(const BOARD_TYPE& board, const BOARD_TYPE& outputVertices) noexcept
+	: LightsOutBoard(board, outputVertices, getLeftEdgeMask(), getRightEdgeMask(), std::default_random_engine(std::random_device()()))
 {
 }
 
@@ -93,7 +121,7 @@ LightsOutBoard<W, H>::LightsOutBoard() noexcept
 
 template <uint64_t W, uint64_t H>
 LightsOutBoard<W, H>::LightsOutBoard(const LightsOutBoard& board) noexcept
-	: LightsOutBoard(board.board, board.outputVertices)
+	: LightsOutBoard(board.board, board.outputVertices, board.LEFT_EDGE_MASK, board.RIGHT_EDGE_MASK, board.generator)
 {
 }
 
@@ -347,6 +375,27 @@ void LightsOutBoard<W, H>::mutateRandom(double probability) noexcept
 }
 
 template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateRandomBlock(double probability, uint64_t blockSize) noexcept
+{
+	static std::uniform_int_distribution<uint64_t> dist1(0, getNumParameters() - 1uLL);
+	static std::exponential_distribution<double> dist2(1.0);
+
+	uint64_t startCoord = dist1(generator);
+
+	uint64_t width = std::min(blockSize, W - startCoord % W);
+	uint64_t height = std::min(blockSize, H - startCoord / W);
+
+	double average_step_size = 1.0 / probability;
+
+	for (double i = average_step_size * dist2(generator); i < width * height; i += average_step_size * dist2(generator))
+	{
+		uint64_t index = startCoord + static_cast<uint64_t>(i) % width + W * (static_cast<uint64_t>(i) / width);
+		board[index] = !board[index];
+	}
+}
+
+
+template <uint64_t W, uint64_t H>
 uint64_t LightsOutBoard<W, H>::getNumOn() const noexcept
 {
 	return (board & ~outputVertices).count();
@@ -355,7 +404,7 @@ uint64_t LightsOutBoard<W, H>::getNumOn() const noexcept
 template <uint64_t W, uint64_t H>
 double LightsOutBoard<W, H>::getPercentageOn() const noexcept
 {
-	return getNumOn() / static_cast<double>(W * H);
+	return getNumOn() / static_cast<double>(getNumParameters());
 }
 
 template <uint64_t W, uint64_t H>
@@ -367,21 +416,21 @@ double LightsOutBoard<W, H>::getCost(const LightsOutBoard& parameters) const noe
 }
 
 template <uint64_t W, uint64_t H>
-uint64_t LightsOutBoard<W, H>::getNumParameters() const noexcept
+constexpr uint64_t LightsOutBoard<W, H>::getNumParameters() const noexcept
 {
 	return W * H;
 }
 
 template <uint64_t W, uint64_t H>
 LightsOutBoard<W, H> LightsOutBoard<W, H>::singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept {
-  unsigned leftout = W * H - pos;
-  auto meCopy = *this;
-  auto mateCopy = mate;
-  meCopy.board <<= leftout;
-  meCopy.board >>= leftout;
-  mateCopy.board >>= pos;
-  mateCopy.board <<= pos;
-  return LightsOutBoard<W, H>(meCopy.board | mateCopy.board, this->outputVertices);
+	unsigned leftout = W * H - pos;
+	auto meCopy = *this;
+	auto mateCopy = mate;
+	meCopy.board <<= leftout;
+	meCopy.board >>= leftout;
+	mateCopy.board >>= pos;
+	mateCopy.board <<= pos;
+	return LightsOutBoard<W, H>(meCopy.board | mateCopy.board, this->outputVertices, LEFT_EDGE_MASK, RIGHT_EDGE_MASK, generator);
 }
 
 template <uint64_t W, uint64_t H>
@@ -430,6 +479,191 @@ std::ostream& operator<<(std::ostream& out, const LightsOutBoard<W, H>& board)
 	return board.print(out);
 }
 
+// ------------------------ 
+// Linear Algebra Method
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::buildMatrix()
+{
+	std::vector<BOARD_TYPE> v (W*H, BOARD_TYPE{});
+	for (uint64_t i = 0; i < v.size(); ++i)
+	{
+		BOARD_TYPE otherBoard;
+		otherBoard[i] = true;
+		v[i] ^= otherBoard; // toggle centers
+		v[i] ^= (otherBoard << W); // toggle above
+		v[i] ^= (otherBoard >> W); // toggle below
+		v[i] ^= ((otherBoard & ~LEFT_EDGE_MASK) >> 1uLL); // toggle left if not on left edge
+		v[i] ^= ((otherBoard & ~RIGHT_EDGE_MASK) << 1uLL);
+		
+	}
+	boardMatrix = v;
 }
 
+template <uint64_t W, uint64_t H>
+uint64_t LightsOutBoard<W, H>::findPivot(uint64_t startRow, uint64_t pivotCol)
+{
+	for (uint64_t row = startRow; row < W * H; ++row)
+      if (boardMatrix[row][pivotCol])
+        return row;
+
+    return  W * H;
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::rowReduce()
+{
+	buildMatrix();
+	std::vector<BOARD_TYPE> identity (W*H, BOARD_TYPE{});
+	for (uint64_t i = 0; i < identity.size(); ++i)
+	{
+		identity[i][i] = true;
+	}
+	uint64_t nextFreeRow = 0;
+	for (uint64_t col = 0; col < W*H; ++col)
+	{
+		uint64_t pivotRow = findPivot(nextFreeRow, col);
+		if (pivotRow == W * H) continue;
+
+		// perform swapping of (boardMatrix[pivotRow], boardMatrix[nextFreeRow]), (identity[pivotRow], identity[nextFreeRow]);
+		if (pivotRow != nextFreeRow)
+		{
+			boardMatrix[pivotRow] ^= boardMatrix[nextFreeRow];
+			boardMatrix[nextFreeRow] ^= boardMatrix[pivotRow];
+			boardMatrix[pivotRow] ^= boardMatrix[nextFreeRow];
+
+			identity[pivotRow] ^= identity[nextFreeRow];
+			identity[nextFreeRow] ^= identity[pivotRow];
+			identity[pivotRow] ^= identity[nextFreeRow];
+		}
+		
+
+
+
+		for (uint64_t row = pivotRow + 1; row < W*H; ++row)
+		{
+			if (boardMatrix[row][col])
+			{
+				boardMatrix[row] ^= boardMatrix[nextFreeRow];
+				identity[row] ^= identity[nextFreeRow]; 
+			}
+		}
+		++nextFreeRow;
+	}
+
+	// reduce more, get null_space
+	int64_t pivotMark = W * H - 1;
+	int64_t k = W * H - pivotMark;
+	std::vector<int64_t> freeCol;
+
+	for (int64_t row = W * H - 1; row >= 0; --row)
+	{
+		if (boardMatrix[row].none()) continue;
+		if ((boardMatrix[row] << k).any())
+		{
+			while((boardMatrix[row] << k).any())
+			{
+				freeCol.push_back(int64_t(W*H - k));
+				++k;
+				
+			}
+		} 
+		pivotMark = W*H - k;
+		++k;
+		
+		for (int64_t moverow = row - 1; moverow >=0; --moverow)
+		{
+			if (boardMatrix[moverow][pivotMark])
+				{
+					boardMatrix[moverow] ^= boardMatrix[row];
+					identity[moverow] ^= identity[row]; 
+				}
+		}
+	}
+	invMatrix = identity;
+	nullSpace = std::vector<BOARD_TYPE>();
+	for (int64_t i: freeCol)
+	{
+		nullSpace.push_back(invMatrix[i]);
+	}
+}
+
+template <uint64_t W, uint64_t H>
+typename LightsOutBoard<W, H>::BOARD_TYPE 
+LightsOutBoard<W, H>::matrixMulti(std::vector<LightsOutBoard<W, H>::BOARD_TYPE> inv, const BOARD_TYPE& b)
+{
+	BOARD_TYPE res;
+	for (uint64_t i = 0; i < W*H; ++i)
+	{
+		BOARD_TYPE s = inv[i] & b;
+		res[i] = s.count() % 2;
+	}
+	return res;
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::solve(const BOARD_TYPE& b)
+{
+	if (nullSpace.size() == 0)
+	{
+		board = matrixMulti(invMatrix, b);
+	}
+	else
+	{
+
+		// check if there is perfect solution
+		bool check = false;
+		for (uint64_t i = 0; i < nullSpace.size(); i++)
+		{
+			BOARD_TYPE s = nullSpace[i] & b;
+			if (s.count() % 2)
+			{
+				std::cout << "no perfect solution" << std::endl;
+				break;
+			}
+		}
+		// -----------------------------------
+		// particular solution
+		BOARD_TYPE parSol;
+		parSol = matrixMulti(invMatrix, b);
+		auto len = nullSpace.size();
+		for (int i = 0; i < pow(2, len); ++i)
+		{
+			std::bitset<20> bs (i);
+			BOARD_TYPE genSol;
+			for (int j = 0; j < len; j++)
+			{
+				if(bs[j])
+				{
+					genSol ^= nullSpace[j];
+				}
+			}
+			genSol ^= parSol;
+			if (parSol.count() > genSol.count()) parSol = genSol;
+		}
+		board = parSol;
+	}
+}
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::solveLinAlg()
+{
+	solve(board);
+}
+
+
+template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::solveLinAlgOther(const LightsOutBoard& other)
+{
+	solve(other.board);
+}
+
+template <uint64_t W, uint64_t H>
+uint64_t LightsOutBoard<W, H>::numberOfNullSpace()
+{
+	return nullSpace.size();
+}
+
+//Linear Algebra Method
+// ------------------------------------
+}
 #endif
