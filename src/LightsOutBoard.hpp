@@ -456,8 +456,6 @@ std::ostream& operator<<(std::ostream& out, const LightsOutBoard<W, H>& board)
 	return board.print(out);
 }
 
-}
-
 // ------------------------ 
 // Linear Algebra Method
 template <uint64_t W, uint64_t H>
@@ -644,5 +642,5 @@ uint64_t LightsOutBoard<W, H>::numberOfNullSpace()
 
 //Linear Algebra Method
 // ------------------------------------
-
+}
 #endif
