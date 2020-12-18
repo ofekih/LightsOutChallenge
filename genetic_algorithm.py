@@ -33,10 +33,8 @@ class GeneticAlgorithm:
     return offsprings
 
   def _mutation(self, offsprings: ['LightsOutBoardnxm']):
-    num_mutation = random.randint(0, 3)
-    to_be_mutated = random.sample(offsprings, num_mutation)
-    for m in to_be_mutated:
-      m.mutate_random(random.uniform(0, 0.1))
+    for m in offsprings:
+      m.mutate_random(random.uniform(0, 1/self.board_size))
     return offsprings
 
   def evolve_once(self, selection_threshold: float):
