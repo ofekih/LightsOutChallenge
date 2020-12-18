@@ -1,4 +1,5 @@
-import random, numpy
+import random
+import numpy
 from LightsOutBoard import LightsOutBoard1000x1000, LightsOutBoard8x8, LightsOutBoard4x3, LightsOutBoard5x5
 
 class GeneticAlgorithm:
@@ -11,15 +12,28 @@ class GeneticAlgorithm:
     self.best = None
     self.best_cost = 1
 
-  def _selection(self, threshold: float):
+  def _selection(self):
     fitted_parents = []
+    fits = []
+    total = 0
     for p in self.population:
       cost = board.get_cost(p)
-      if cost <= threshold:
-        fitted_parents.append(p)
-        if cost < self.best_cost:
-          self.best = p
-          self.best_cost = cost
+      fitness = 1-cost
+      fits.append(fitness)
+      total += fitness
+    for i in range(len(fits)):
+      fits[i] /= total
+    best_index = max(enumerate(fits), key=lambda t:t[1])[0]
+    self.best = self.population[best_index]
+    self.best_cost = board.get_cost(self.best)
+    while len(fitted_parents) < self.population_size/2:
+      R = random.random()
+      accum = 0
+      for i in range(len(fits)):
+        accum += fits[i]
+        if accum >= R:
+          fitted_parents.append(self.population[i])
+          break
     return fitted_parents
 
   def _crossover(self, parents: ['LightsOutBoardnxm']):
@@ -33,24 +47,22 @@ class GeneticAlgorithm:
     return offsprings
 
   def _mutation(self, offsprings: ['LightsOutBoardnxm']):
-    num_mutation = random.randint(0, 3)
-    to_be_mutated = random.sample(offsprings, num_mutation)
-    for m in to_be_mutated:
-      m.mutate_random(random.uniform(0, 0.1))
+    for m in offsprings:
+      m.mutate_random(random.uniform(0, 1/self.board_size))
     return offsprings
 
-  def evolve_once(self, selection_threshold: float):
-    fitted_parents = self._selection(selection_threshold)
+  def evolve_once(self):
+    fitted_parents = self._selection()
     offsprings = self._crossover(fitted_parents)
     self.population = self._mutation(offsprings)
 
   def full_evolution(self):
     iteration = 0
-    f = lambda x: numpy.exp(-x**(0.01))
+    #f = lambda x: numpy.exp(-x**(0.01))
     while self.best_cost != 0:
-      threshold = f(iteration)
-      print(threshold)
-      self.evolve_once(threshold)
+      #threshold = f(iteration)
+      #print(threshold)
+      self.evolve_once()
       iteration += 1
       print(f'iteration: {iteration}; best_cost: {self.best_cost}')
 

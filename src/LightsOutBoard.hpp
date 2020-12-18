@@ -1,6 +1,7 @@
 #ifndef LightsOutBoard_H
 #define LightsOutBoard_H
 
+#include <algorithm>
 #include <bitset>
 #include <cmath>
 #include <cstdint>
@@ -52,10 +53,11 @@ public:
 	void mutateBoard(const LightsOutBoard& lightsOutBoard) noexcept;
 	void keepRelevantMutations(const LightsOutBoard& stillOn) noexcept;
 	void mutateRandom(double probability) noexcept;
+	void mutateRandomBlock(double probability, uint64_t blockSize) noexcept;
 	uint64_t getNumOn() const noexcept;
 	double getPercentageOn() const noexcept;
 	double getCost(const LightsOutBoard& parameters) const noexcept;
-	uint64_t getNumParameters() const noexcept;
+	constexpr uint64_t getNumParameters() const noexcept;
 	void set(uint64_t location, bool on) noexcept;
 	void setList(const boost::python::list& list) noexcept;
 	void setCoords(uint64_t x, uint64_t y, bool on) noexcept;
@@ -67,7 +69,7 @@ public:
 	void setAllOutputVertices(bool on) noexcept;
 	void setRandomOutputVertices(double probability) noexcept;
 	void setRandomSeed(uint64_t seed) noexcept;
-  LightsOutBoard singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept;
+	LightsOutBoard singleCrossover(const LightsOutBoard& mate, const unsigned pos) const noexcept;
 	std::string pretty() const noexcept;
 	std::ostream& print(std::ostream& out) const noexcept;
 
@@ -373,6 +375,27 @@ void LightsOutBoard<W, H>::mutateRandom(double probability) noexcept
 }
 
 template <uint64_t W, uint64_t H>
+void LightsOutBoard<W, H>::mutateRandomBlock(double probability, uint64_t blockSize) noexcept
+{
+	static std::uniform_int_distribution<uint64_t> dist1(0, getNumParameters() - 1uLL);
+	static std::exponential_distribution<double> dist2(1.0);
+
+	uint64_t startCoord = dist1(generator);
+
+	uint64_t width = std::min(blockSize, W - startCoord % W);
+	uint64_t height = std::min(blockSize, H - startCoord / W);
+
+	double average_step_size = 1.0 / probability;
+
+	for (double i = average_step_size * dist2(generator); i < width * height; i += average_step_size * dist2(generator))
+	{
+		uint64_t index = startCoord + static_cast<uint64_t>(i) % width + W * (static_cast<uint64_t>(i) / width);
+		board[index] = !board[index];
+	}
+}
+
+
+template <uint64_t W, uint64_t H>
 uint64_t LightsOutBoard<W, H>::getNumOn() const noexcept
 {
 	return (board & ~outputVertices).count();
@@ -393,7 +416,7 @@ double LightsOutBoard<W, H>::getCost(const LightsOutBoard& parameters) const noe
 }
 
 template <uint64_t W, uint64_t H>
-uint64_t LightsOutBoard<W, H>::getNumParameters() const noexcept
+constexpr uint64_t LightsOutBoard<W, H>::getNumParameters() const noexcept
 {
 	return W * H;
 }

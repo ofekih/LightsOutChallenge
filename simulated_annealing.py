@@ -18,6 +18,7 @@ class SimulatedAnnealing:
 		self.best_cost = self.current_cost = self._board.get_cost(self.best_parameters)
 
 		self.consecutive_increasing_suboptimal = 0
+		self.consecutive_no_change = 0
 
 	def _get_mutated_parameters(self) -> 'mutated parameters':
 		mutated_parameters = self.current_parameters.clone()
@@ -25,6 +26,8 @@ class SimulatedAnnealing:
 		mutation_probability = self.minimum_mutation_probability + (self.maximum_mutation_probability - self.minimum_mutation_probability) * self.current_temperature
 
 		mutated_parameters.mutate_random(mutation_probability)
+		# mutated_parameters.mutate_random_block(mutation_probability, 15)
+		# print(mutated_parameters.get_num_on())
 
 		return mutated_parameters
 
@@ -39,6 +42,7 @@ class SimulatedAnnealing:
 		cost = self._board.get_cost(mutated_parameters)
 
 		acceptance_probability = self._get_acceptance_probability(self.current_cost, cost)
+		self.consecutive_no_change += 1
 
 		if random.random() < acceptance_probability:
 			if cost > self.current_cost and cost > self.best_cost:
@@ -50,11 +54,14 @@ class SimulatedAnnealing:
 
 			self.current_parameters = mutated_parameters
 			self.current_cost = cost
+			self.consecutive_no_change = 0
+
 
 		if cost <= self.best_cost:
 			self.best_parameters = mutated_parameters
 			self.best_cost = cost
 			self.consecutive_increasing_suboptimal = 0
+			self.consecutive_no_change = 0
 
 		self.current_temperature *= self.temperature_multiplier
 
@@ -64,48 +71,31 @@ if __name__ == '__main__':
 
 	board = LightsOutBoard1000x1000()
 	board.set_random_seed(124124)
-	board.set_random(0.5)
 
-	# board.set_list([0, 1, 0, 0, 1,
-	#                 0, 1, 0, 1, 0,
-	#                 1, 1, 1, 1, 0,
-	#                 1, 0, 0, 1, 0,
-	#                 0, 1, 0, 0, 0])
-	# board.set_list([1, 0, 0, 1, 0,
-	#                 0, 0, 0, 0, 0,
-	#                 1, 1, 1, 1, 0,
-	#                 0, 1, 0, 0, 1,
-	#                 1, 0, 0, 1, 1])
+	for mutation_probability in (i * 5e-7 for i in range(1, 16)):
+		for i in range(5):
+			board.set_random(0.6)
 
-	# print(board.pretty())
-
-	parameters = LightsOutBoard1000x1000()
-	parameters.set_random_seed(578392)
-	# parameters.set_list([0, 1, 0, 0, 1,
-	#                      1, 0, 1, 1, 0,
-	#                      1, 0, 0, 1, 0,
-	#                      1, 0, 1, 1, 1,
-	#                      1, 0, 0, 1, 0])
-
-	# print(1 - board.get_cost(parameters))
-	# exit(0)
+			parameters = LightsOutBoard1000x1000()
+			parameters.set_random_seed(578392)
 
 
-	sa = SimulatedAnnealing(board,
-		initial_temperature = 0.0005,
-		temperature_multiplier = 0.99995,
-		current_parameters = parameters,
-		maximum_mutation_probability = 0.025,
-		minimum_mutation_probability = 0.0001,
-		maximum_consecutive_increasing_suboptimal = 1000000)
+			sa = SimulatedAnnealing(board,
+				initial_temperature = 0.00005,
+				temperature_multiplier = 0.99995,
+				current_parameters = parameters,
+				maximum_mutation_probability = mutation_probability,
+				minimum_mutation_probability = mutation_probability,
+				maximum_consecutive_increasing_suboptimal = 1000)
 
-	for i in range(10000):
-		print(f'{i:5d}: {sa.current_temperature:.6e} {sa.current_cost:.6f} {sa.best_cost:.6f}')
-		sa.run_one_cycle()
-	# sa.run_one_cycle()
-	# print(f'{0:5d}: {sa.current_temperature:.6e} {sa.current_cost:.6f} {sa.best_cost:.6f}')
-	print(sa.best_parameters.get_num_on())
+			initial_on = board.get_num_on()
 
+			while sa.consecutive_no_change < 1000:
+				sa.run_one_cycle()
+
+			final_on = sa.best_parameters.get_num_on()
+
+			print(f'{mutation_probability} {i}: {initial_on} -> {final_on} ({initial_on - final_on})')
 
 # 1000x1000, 0.5 probability results
 # result | # iterations | initial temperature | temperature multiplier | additional details
